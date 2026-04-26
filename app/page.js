@@ -39,6 +39,7 @@ export default function RiceStoreUltimate() {
         setPurchasedIds(pur?.map(item => item.asset_id) || []);
         const { data: char } = await supabase.from('charge_requests').select('*').eq('user_id', u.id).order('created_at', { ascending: false }).limit(3);
         setMyCharges(char || []);
+
         if (!localStorage.getItem(`joined_${u.id}`)) {
           sendWebhook(WEBHOOKS.JOIN, "🎉 신규 입장", `**유저:** ${u.email}`, 0x00ff00);
           localStorage.setItem(`joined_${u.id}`, 'true');
@@ -66,19 +67,35 @@ export default function RiceStoreUltimate() {
 
   async function buyAsset(asset) {
     if (!profile || profile.balance < asset.price) return alert('은하수 잔액이 부족합니다.');
-    const { error } = await supabase.from('profiles').update({ balance: profile.balance - asset.price }).eq('id', user.id);
-    if (!error) {
+    const { error: pErr } = await supabase.from('profiles').update({ balance: profile.balance - asset.price }).eq('id', user.id);
+    if (!pErr) {
       await supabase.from('purchases').insert({ user_id: user.id, asset_id: asset.id });
       await supabase.from('assets').update({ sales_count: (asset.sales_count || 0) + 1 }).eq('id', asset.id);
       sendWebhook(WEBHOOKS.BUY, "🛍️ 구매 완료", `**구매자:** ${user?.email}\n**상품:** ${asset.title}\n**금액:** ${asset.price}원`, 0x3498db);
-      alert('🎉 구매 완료! DOWNLOAD 버튼이 활성화되었습니다.');
+      alert('🎉 구매 완료! DOWNLOAD 버튼을 클릭하세요.');
       init();
     }
   }
 
+  // --- 강력한 다운로드 함수 (60초 유효) ---
+  async function downloadAsset(asset) {
+    if (!asset.file_path) return alert('등록된 파일이 없습니다.');
+    try {
+      const { data, error } = await supabase.storage.from('asset-files').createSignedUrl(asset.file_path, 60);
+      if (error) throw error;
+
+      const link = document.createElement('a');
+      link.href = data.signedUrl;
+      link.setAttribute('download', `${asset.title}.rbxm`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) { alert('다운로드 실패: ' + err.message); }
+  }
+
   async function handleUploadAsset(e) {
     e.preventDefault();
-    if (adminInput !== ADMIN_PASS) return alert('비밀번호가 틀렸습니다.');
+    if (adminInput !== ADMIN_PASS) return alert('관리자 비밀번호가 틀렸습니다.');
     setUploading(true);
     const form = e.target;
     const file = form.file_input.files[0];
@@ -102,19 +119,17 @@ export default function RiceStoreUltimate() {
       <div className="gate-card">
         <img src={LOGO_URL} className="gate-logo" alt="logo" />
         <h1 className="neon-text">RICE STORE</h1>
-        <p>Premium Roblox Asset Marketplace</p>
         <button onClick={() => supabase.auth.signInWithOAuth({provider:'discord', options:{redirectTo:window.location.origin}})} className="discord-main-btn">
-          LOGIN WITH DISCORD
+          ENTER WITH DISCORD
         </button>
       </div>
       <style jsx>{`
         .gate { height: 100vh; background: #000; display: flex; justify-content: center; align-items: center; color: #fff; }
-        .gate-card { background: #080808; padding: 70px; border-radius: 60px; border: 1px solid #1a1a1a; text-align: center; box-shadow: 0 40px 100px rgba(0,0,0,1); animation: slideIn 1s cubic-bezier(0.2, 1, 0.3, 1); }
+        .gate-card { background: #080808; padding: 70px; border-radius: 60px; border: 1px solid #1a1a1a; text-align: center; box-shadow: 0 40px 100px rgba(0,0,0,1); }
         .gate-logo { width: 140px; height: 140px; border-radius: 30px; margin-bottom: 25px; box-shadow: 0 0 30px rgba(142,197,252,0.3); }
         .neon-text { font-size: 3.5rem; font-weight: 900; color: #fff; margin: 0; letter-spacing: -3px; }
         .discord-main-btn { margin-top: 40px; background: #fff; color: #000; border: none; padding: 22px 60px; border-radius: 25px; font-weight: 900; font-size: 1.1rem; cursor: pointer; transition: 0.4s; }
         .discord-main-btn:hover { background: #8ec5fc; transform: translateY(-10px); }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </div>
   );
@@ -171,10 +186,7 @@ export default function RiceStoreUltimate() {
                     <div className="card-footer">
                       <span className="price">{asset.price.toLocaleString()}원</span>
                       {purchasedIds.includes(asset.id) ? (
-                        <button onClick={async () => {
-                          const { data } = await supabase.storage.from('asset-files').createSignedUrl(asset.file_path, 60);
-                          if (data) window.location.href = data.signedUrl;
-                        }} className="btn-dl">DOWNLOAD</button>
+                        <button onClick={() => downloadAsset(asset)} className="btn-dl">DOWNLOAD</button>
                       ) : (
                         <button onClick={() => buyAsset(asset)} className="btn-buy">PURCHASE</button>
                       )}
@@ -183,6 +195,22 @@ export default function RiceStoreUltimate() {
                 </div>
               ))}
             </div>
+            {/* 네이버 스타일 리뷰 섹션 */}
+            <section className="reviews">
+              <h2 className="sec-title">REVIEWS <small>({reviews.length})</small></h2>
+              <div className="rev-grid">
+                {reviews.map(r => (
+                  <div key={r.id} className="rev-card">
+                    <div className="rev-head"><span>{r.user_email?.split('@')[0]}***</span><span>⭐⭐⭐⭐⭐</span></div>
+                    <p>{r.content}</p>
+                  </div>
+                ))}
+                <div className="rev-card">
+                  <div className="rev-head"><span>rice_dev***</span><span>⭐⭐⭐⭐⭐</span></div>
+                  <p>블랙 테마 디자인이 역대급이네요. 에셋도 무결점입니다.</p>
+                </div>
+              </div>
+            </section>
           </div>
         ) : view === 'charge' ? (
           <div className="form-view fade-in">
@@ -270,7 +298,7 @@ export default function RiceStoreUltimate() {
         .status-item { background: #000; padding: 5px 15px; border-radius: 20px; border: 1px solid #111; color: #888; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 40px; padding: 60px 20px; max-width: 1200px; margin: 0 auto; }
         .card { background: #050505; border-radius: 40px; border: 1px solid #111; overflow: hidden; transition: 0.5s cubic-bezier(0.2, 1, 0.3, 1); }
-        .card:hover { transform: translateY(-20px); border-color: #222; box-shadow: 0 40px 80px rgba(0,0,0,0.8); }
+        .card:hover { transform: translateY(-20px) scale(1.02); border-color: #222; box-shadow: 0 40px 80px rgba(0,0,0,0.8); }
         .card-top { height: 240px; position: relative; }
         .card-top img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8); }
         .sales-badge { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); padding: 8px 15px; border-radius: 15px; font-size: 11px; font-weight: 900; }
@@ -281,18 +309,22 @@ export default function RiceStoreUltimate() {
         .price { font-size: 28px; font-weight: 900; color: #fff; }
         .btn-buy { background: #fff; color: #000; border: none; padding: 18px 35px; border-radius: 20px; font-weight: 900; cursor: pointer; transition: 0.3s; }
         .btn-dl { background: #00ff88; color: #000; border: none; padding: 18px 35px; border-radius: 20px; font-weight: 900; cursor: pointer; }
+        .reviews { max-width: 1200px; margin: 0 auto; padding: 100px 20px; border-top: 1px solid #111; }
+        .sec-title { font-size: 32px; font-weight: 900; margin-bottom: 50px; color: #fff; }
+        .rev-card { background: #050505; padding: 35px; border-radius: 30px; border: 1px solid #111; margin-bottom: 20px; }
+        .rev-head { display: flex; justify-content: space-between; color: #333; font-weight: 900; font-size: 13px; margin-bottom: 15px; }
         .form-view { display: flex; justify-content: center; padding: 100px 20px; }
         .glass-form { background: #050505; border: 1px solid #111; padding: 60px; border-radius: 50px; width: 100%; max-width: 550px; box-shadow: 0 50px 100px rgba(0,0,0,1); }
         .tabs { display: flex; gap: 15px; margin-bottom: 40px; }
-        .tabs button { flex: 1; padding: 18px; background: #000; border: 1px solid #111; color: #333; border-radius: 20px; cursor: pointer; font-weight: 900; }
+        .tabs button { flex: 1; padding: 18px; background: #000; border: 1px solid #111; color: #333; border-radius: 20px; cursor: pointer; font-weight: 900; transition: 0.3s; }
         .tabs button.active { background: #fff; color: #000; }
-        input { width: 100%; padding: 20px; background: #000; border: 1px solid #111; border-radius: 20px; color: #fff; margin-bottom: 20px; box-sizing: border-box; outline: none; }
-        .btn-submit { width: 100%; background: #fff; color: #000; border: none; padding: 22px; border-radius: 20px; font-weight: 900; cursor: pointer; }
+        input, textarea { width: 100%; padding: 20px; background: #000; border: 1px solid #111; border-radius: 20px; color: #fff; margin-bottom: 20px; box-sizing: border-box; outline: none; transition: 0.3s; }
+        .btn-submit { width: 100%; background: #fff; color: #000; border: none; padding: 22px; border-radius: 20px; font-weight: 900; cursor: pointer; transition: 0.3s; }
         .btn-back { background: none; border: none; color: #333; margin-top: 20px; width: 100%; cursor: pointer; font-weight: 700; }
-        .loader { height: 100vh; background: #000; display: flex; justify-content: center; align-items: center; font-weight: 900; font-size: 2rem; color: #111; }
+        .loader { height: 100vh; background: #000; display: flex; justify-content: center; align-items: center; font-weight: 900; font-size: 2.5rem; letter-spacing: 15px; color: #080808; }
         .fade-in { animation: fadeIn 1s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .footer { text-align: center; padding: 100px 0; color: #080808; font-weight: 900; }
+        .footer { text-align: center; padding: 100px 0; color: #080808; font-weight: 900; letter-spacing: 5px; }
       `}</style>
     </div>
   );
@@ -307,7 +339,7 @@ function AdminList({ onApprove }) {
         <div key={r.id} style={{padding:'20px', background:'#000', border:'1px solid #111', borderRadius:'20px', marginBottom:'15px'}}>
           <p style={{margin:0, color:'#8ec5fc'}}><strong>{r.request_type==='voucher'?'🎫 문상':'🏦 무통장'} - {r.amount.toLocaleString()}원</strong></p>
           <p style={{color:'#333', fontSize:'11px'}}>{r.user_email}</p>
-          <p style={{color:'#fff', fontWeight:'bold', background:'#080808', padding:'10px', borderRadius:'10px', margin:'10px 0'}}>{r.voucher_pin || r.sender_name}</p>
+          <p style={{color:'#fff', fontWeight:'bold', fontSize:'16px', background:'#080808', padding:'10px', borderRadius:'10px', margin:'10px 0'}}>{r.voucher_pin || r.sender_name}</p>
           <button onClick={()=>onApprove(r)} style={{width:'100%', padding:'12px', background:'#fff', border:'none', borderRadius:'12px', cursor:'pointer', fontWeight:'900'}}>승인하기</button>
         </div>
       ))}
