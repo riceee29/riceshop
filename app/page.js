@@ -2,13 +2,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-export default function RiceStoreFinal() {
+export default function RiceStoreUltimate() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [assets, setAssets] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [purchasedIds, setPurchasedIds] = useState([]);
-  const [myCharges, setMyCharges] = useState([]);
+  const [myCharges, setMyCharges] = useState([]); 
   const [view, setView] = useState('shop'); 
   const [loading, setLoading] = useState(true);
   const [chargeType, setChargeType] = useState('voucher');
@@ -39,16 +39,17 @@ export default function RiceStoreFinal() {
         setPurchasedIds(pur?.map(item => item.asset_id) || []);
         const { data: char } = await supabase.from('charge_requests').select('*').eq('user_id', u.id).order('created_at', { ascending: false }).limit(3);
         setMyCharges(char || []);
+        if (!localStorage.getItem(`joined_${u.id}`)) {
+          sendWebhook(WEBHOOKS.JOIN, "🎉 신규 입장", `**유저:** ${u.email}`, 0x00ff00);
+          localStorage.setItem(`joined_${u.id}`, 'true');
+        }
       }
       const { data: assetsData } = await supabase.from('assets').select('*').order('id', { ascending: false });
       setAssets(assetsData || []);
       const { data: revData } = await supabase.from('reviews').select('*').order('created_at', { ascending: false });
       setReviews(revData || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); }
+    setLoading(false);
   }
 
   async function sendWebhook(url, title, message, color) {
@@ -64,7 +65,7 @@ export default function RiceStoreFinal() {
   }
 
   async function buyAsset(asset) {
-    if (!profile || profile.balance < asset.price) return alert('잔액이 부족합니다.');
+    if (!profile || profile.balance < asset.price) return alert('은하수 잔액이 부족합니다.');
     const { error } = await supabase.from('profiles').update({ balance: profile.balance - asset.price }).eq('id', user.id);
     if (!error) {
       await supabase.from('purchases').insert({ user_id: user.id, asset_id: asset.id });
@@ -77,7 +78,7 @@ export default function RiceStoreFinal() {
 
   async function handleUploadAsset(e) {
     e.preventDefault();
-    if (adminInput !== ADMIN_PASS) return alert('관리자 비밀번호가 틀렸습니다.');
+    if (adminInput !== ADMIN_PASS) return alert('비밀번호가 틀렸습니다.');
     setUploading(true);
     const form = e.target;
     const file = form.file_input.files[0];
@@ -90,11 +91,8 @@ export default function RiceStoreFinal() {
       });
       sendWebhook(WEBHOOKS.UPLOAD, "📦 에셋 등록 완료", `**에셋:** ${form.title.value}\n**가격:** ${form.price.value}원`, 0x9b59b6);
       alert('등록 성공!'); setView('shop'); init();
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setUploading(false);
-    }
+    } catch (err) { alert(err.message); }
+    setUploading(false);
   }
 
   if (loading) return <div className="loader"><span>RICE STORE</span></div>;
@@ -103,34 +101,40 @@ export default function RiceStoreFinal() {
     <div className="gate">
       <div className="gate-card">
         <img src={LOGO_URL} className="gate-logo" alt="logo" />
-        <h1>RICE STORE</h1>
-        <p>Premium Roblox Assets</p>
-        <button onClick={() => supabase.auth.signInWithOAuth({provider:'discord'})} className="discord-main-btn">
+        <h1 className="neon-text">RICE STORE</h1>
+        <p>Premium Roblox Asset Marketplace</p>
+        <button onClick={() => supabase.auth.signInWithOAuth({provider:'discord', options:{redirectTo:window.location.origin}})} className="discord-main-btn">
           LOGIN WITH DISCORD
         </button>
       </div>
       <style jsx>{`
         .gate { height: 100vh; background: #000; display: flex; justify-content: center; align-items: center; color: #fff; }
-        .gate-card { background: #0a0a0a; padding: 60px; border-radius: 40px; border: 1px solid #1a1a1a; text-align: center; }
-        .gate-logo { width: 120px; border-radius: 20px; margin-bottom: 20px; border: 2px solid #333; }
-        .discord-main-btn { background: #fff; color: #000; border: none; padding: 15px 40px; border-radius: 12px; font-weight: 900; cursor: pointer; margin-top: 30px; }
+        .gate-card { background: #080808; padding: 70px; border-radius: 60px; border: 1px solid #1a1a1a; text-align: center; box-shadow: 0 40px 100px rgba(0,0,0,1); animation: slideIn 1s cubic-bezier(0.2, 1, 0.3, 1); }
+        .gate-logo { width: 140px; height: 140px; border-radius: 30px; margin-bottom: 25px; box-shadow: 0 0 30px rgba(142,197,252,0.3); }
+        .neon-text { font-size: 3.5rem; font-weight: 900; color: #fff; margin: 0; letter-spacing: -3px; }
+        .discord-main-btn { margin-top: 40px; background: #fff; color: #000; border: none; padding: 22px 60px; border-radius: 25px; font-weight: 900; font-size: 1.1rem; cursor: pointer; transition: 0.4s; }
+        .discord-main-btn:hover { background: #8ec5fc; transform: translateY(-10px); }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </div>
   );
 
   return (
-    <div className="container">
+    <div className="app-container">
       <nav className="nav">
         <div className="nav-inner">
-          <div className="logo" onClick={() => setView('shop')}>
-            <img src={LOGO_URL} className="nav-logo" alt="logo" />
-            <span>RICE STORE</span>
+          <div className="logo-section" onClick={() => setView('shop')}>
+            <img src={LOGO_URL} className="logo-img" alt="logo" />
+            <span className="logo-text">RICE STORE</span>
           </div>
           <div className="nav-right">
             <span className="admin-btn" onClick={() => setView('admin')}>ADMIN</span>
-            <div className="user-badge">
-              <span className="balance">{profile?.balance?.toLocaleString()}원</span>
-              <button className="charge-nav" onClick={() => setView('charge')}>+</button>
+            <div className="user-card">
+              <div className="balance-info">
+                <span className="bal-label">WALLET</span>
+                <span className="bal-val">{profile?.balance?.toLocaleString()}원</span>
+              </div>
+              <button className="charge-nav-btn" onClick={() => setView('charge')}>충전하기</button>
               {user?.user_metadata?.avatar_url && <img src={user.user_metadata.avatar_url} className="nav-avatar" alt="avatar" />}
               <button className="logout-btn" onClick={() => supabase.auth.signOut().then(()=>window.location.reload())}>✕</button>
             </div>
@@ -140,48 +144,53 @@ export default function RiceStoreFinal() {
 
       {myCharges.length > 0 && view === 'shop' && (
         <div className="status-bar">
-          {myCharges.map(c => (
-            <div key={c.id} className="status-item">
-              🔔 {c.amount.toLocaleString()}원 충전 신청 - {c.status === 'pending' ? '대기 중' : '완료'}
-            </div>
-          ))}
+          <div className="status-inner">
+            <span style={{color:'#555', fontWeight:'900'}}>🔔 충전 알림 :</span>
+            {myCharges.map(c => (
+              <div key={c.id} className="status-item">
+                {c.amount.toLocaleString()}원 <span style={{color: c.status==='pending'?'#f1c40f':'#00ff88', marginLeft:'5px'}}>{c.status === 'pending' ? '대기 중' : '완료'}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       <main className="content">
         {view === 'shop' ? (
-          <div className="grid">
-            {assets.map(asset => (
-              <div key={asset.id} className="card">
-                <div className="card-img-box">
-                  <img src={asset.image_url} alt="asset" />
-                  <span className="sales-badge">구매 {asset.sales_count || 0}</span>
-                </div>
-                <div className="card-body">
-                  <h3>{asset.title}</h3>
-                  <p>{asset.description}</p>
-                  <div className="card-footer">
-                    <span className="price">{asset.price.toLocaleString()}원</span>
-                    {purchasedIds.includes(asset.id) ? (
-                      <button onClick={async () => {
-                        const { data } = await supabase.storage.from('asset-files').createSignedUrl(asset.file_path, 60);
-                        if (data) window.location.href = data.signedUrl;
-                      }} className="dl-btn">DOWNLOAD</button>
-                    ) : (
-                      <button onClick={() => buyAsset(asset)} className="buy-btn">PURCHASE</button>
-                    )}
+          <div className="shop-grid fade-in">
+            <div className="grid">
+              {assets.map(asset => (
+                <div key={asset.id} className="card">
+                  <div className="card-top">
+                    <img src={asset.image_url} alt="asset" />
+                    <span className="sales-badge">구매 {asset.sales_count || 0}건</span>
+                  </div>
+                  <div className="card-body">
+                    <h3>{asset.title}</h3>
+                    <p>{asset.description}</p>
+                    <div className="card-footer">
+                      <span className="price">{asset.price.toLocaleString()}원</span>
+                      {purchasedIds.includes(asset.id) ? (
+                        <button onClick={async () => {
+                          const { data } = await supabase.storage.from('asset-files').createSignedUrl(asset.file_path, 60);
+                          if (data) window.location.href = data.signedUrl;
+                        }} className="btn-dl">DOWNLOAD</button>
+                      ) : (
+                        <button onClick={() => buyAsset(asset)} className="btn-buy">PURCHASE</button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         ) : view === 'charge' ? (
-          <div className="form-view">
-            <div className="glass-card">
-              <h2>포인트 충전 신청</h2>
+          <div className="form-view fade-in">
+            <div className="glass-form">
+              <h2>CHARGE WALLET</h2>
               <div className="tabs">
-                <button className={chargeType==='voucher'?'active':''} onClick={()=>setChargeType('voucher')}>문상</button>
-                <button className={chargeType==='bank'?'active':''} onClick={()=>setChargeType('bank')}>무통장</button>
+                <button className={chargeType==='voucher'?'active':''} onClick={()=>setChargeType('voucher')}>문화상품권</button>
+                <button className={chargeType==='bank'?'active':''} onClick={()=>setChargeType('bank')}>무통장입금</button>
               </div>
               <form onSubmit={(e) => {
                 e.preventDefault();
@@ -197,68 +206,112 @@ export default function RiceStoreFinal() {
                 });
               }}>
                 <input name="amount" type="number" placeholder="금액 (원)" required />
-                {chargeType === 'voucher' ? <input name="voucher_pin" placeholder="PIN 번호" required /> : <input name="sender_name" placeholder="입금자명" required />}
-                <button type="submit" className="submit-btn">충전 신청하기</button>
+                {chargeType === 'voucher' ? <input name="voucher_pin" placeholder="PIN 번호를 입력하세요" required /> : <input name="sender_name" placeholder="입금자 성함" required />}
+                <button type="submit" className="btn-submit">신청하기</button>
               </form>
-              <button className="back-btn" onClick={() => setView('shop')}>돌아가기</button>
+              <button className="btn-back" onClick={()=>setView('shop')}>BACK TO STORE</button>
             </div>
           </div>
         ) : (
-          <div className="form-view">
-            <div className="glass-card">
-              <h2>관리자 패널</h2>
-              <input type="password" placeholder="비밀번호" onChange={e => setAdminInput(e.target.value)} />
+          <div className="form-view fade-in">
+            <div className="glass-form" style={{maxWidth:'600px'}}>
+              <h2>ADMIN PANEL</h2>
+              <input type="password" placeholder="ADMIN CODE" className="admin-input" onChange={e=>setAdminInput(e.target.value)} />
               {adminInput === ADMIN_PASS && (
-                <form onSubmit={handleUploadAsset} style={{display:'flex', flexDirection:'column', gap:'10px', marginTop:'20px'}}>
-                  <input name="title" placeholder="상품명" required />
-                  <input name="price" type="number" placeholder="가격" required />
-                  <textarea name="description" placeholder="설명" required style={{background:'#000', color:'#fff', padding:'10px', borderRadius:'10px', border:'1px solid #222'}} />
-                  <input name="image" placeholder="이미지 URL" required />
-                  <input name="file_input" type="file" required style={{border:'none'}} />
-                  <button type="submit" className="submit-btn" disabled={uploading}>{uploading ? '업로드 중...' : '등록하기'}</button>
-                </form>
+                <div className="admin-content">
+                   <form onSubmit={handleUploadAsset} className="upload-form">
+                    <input name="title" placeholder="에셋 이름" required />
+                    <input name="price" type="number" placeholder="가격(원)" required />
+                    <textarea name="description" placeholder="상세 설명" required style={{background:'#000', color:'#fff', padding:'15px', borderRadius:'15px', border:'1px solid #111', marginBottom:'15px', width:'100%', boxSizing:'border-box'}} />
+                    <input name="image" placeholder="이미지 URL" required />
+                    <label style={{fontSize:'11px', color:'#555', display:'block', marginBottom:'10px'}}>로블록스 파일(.rbxm) 업로드:</label>
+                    <input name="file_input" type="file" required style={{border:'none', marginBottom:'20px'}} />
+                    <button type="submit" className="btn-submit" disabled={uploading}>{uploading ? 'UPLOADING...' : 'REGISTER ITEM'}</button>
+                  </form>
+                  <hr style={{borderColor:'#111', margin:'40px 0'}} />
+                  <h3 style={{fontSize:'16px', marginBottom:'20px'}}>대기 중인 충전 요청</h3>
+                  <AdminList onApprove={async (req) => {
+                     const { data: p } = await supabase.from('profiles').select('balance').eq('id', req.user_id).single();
+                     await supabase.from('profiles').update({ balance: (p.balance || 0) + req.amount }).eq('id', req.user_id);
+                     await supabase.from('charge_requests').update({ status: 'success' }).eq('id', req.id);
+                     alert('승인되었습니다!'); init();
+                  }} />
+                </div>
               )}
-              <button className="back-btn" onClick={() => setView('shop')}>나가기</button>
+              <button className="btn-back" onClick={()=>setView('shop')}>EXIT</button>
             </div>
           </div>
         )}
       </main>
 
+      <footer className="footer">
+        <p>&copy; 2024 RICE STORE. ALL RIGHTS RESERVED.</p>
+      </footer>
+
       <style jsx global>{`
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; }
-        .nav { background: #050505; border-bottom: 1px solid #111; position: sticky; top: 0; z-index: 100; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
+        body { margin: 0; background: #000; color: #fff; font-family: 'Outfit', sans-serif; overflow-x: hidden; }
+        .nav { background: rgba(0,0,0,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid #111; position: sticky; top: 0; z-index: 1000; }
         .nav-inner { max-width: 1200px; margin: 0 auto; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .logo { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 900; font-size: 24px; }
-        .nav-logo { width: 40px; height: 40px; border-radius: 10px; }
-        .user-badge { display: flex; align-items: center; gap: 12px; background: #0a0a0a; padding: 8px 20px; border-radius: 30px; border: 1px solid #222; }
-        .balance { font-weight: bold; color: #8ec5fc; }
-        .charge-nav { background: #fff; border: none; width: 24px; height: 24px; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        .nav-avatar { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #333; }
-        .logout-btn { background: none; border: none; color: #444; cursor: pointer; font-size: 18px; }
-        .admin-btn { font-size: 11px; color: #111; cursor: pointer; }
-        .status-bar { background: #0a0a0a; padding: 12px; text-align: center; border-bottom: 1px solid #111; display: flex; gap: 20px; justify-content: center; font-size: 12px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 35px; padding: 60px 20px; max-width: 1200px; margin: 0 auto; }
-        .card { background: #080808; border-radius: 30px; border: 1px solid #1a1a1a; overflow: hidden; transition: 0.3s; }
-        .card:hover { transform: translateY(-10px); border-color: #333; }
-        .card-img-box { height: 200px; position: relative; }
-        .card-img-box img { width: 100%; height: 100%; object-fit: cover; }
-        .sales-badge { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.7); padding: 5px 12px; border-radius: 10px; font-size: 11px; font-weight: bold; }
-        .card-body { padding: 25px; }
-        .card-body p { color: #555; font-size: 14px; margin-bottom: 20px; height: 40px; overflow: hidden; }
-        .card-footer { display: flex; justify-content: space-between; align-items: center; }
-        .price { font-size: 22px; font-weight: 900; }
-        .buy-btn { background: #fff; color: #000; border: none; padding: 12px 25px; border-radius: 12px; font-weight: bold; cursor: pointer; }
-        .dl-btn { background: #00ff88; color: #000; border: none; padding: 12px 25px; border-radius: 12px; font-weight: bold; cursor: pointer; }
+        .logo-section { display: flex; align-items: center; gap: 15px; cursor: pointer; }
+        .logo-img { width: 45px; height: 45px; border-radius: 12px; border: 1px solid #222; }
+        .logo-text { font-size: 24px; font-weight: 900; letter-spacing: -1px; }
+        .user-card { display: flex; align-items: center; gap: 15px; background: #0a0a0a; padding: 8px 20px; border-radius: 20px; border: 1px solid #1a1a1a; }
+        .balance-info { display: flex; flex-direction: column; text-align: right; }
+        .bal-label { font-size: 8px; color: #444; font-weight: 900; }
+        .bal-val { font-size: 15px; font-weight: 700; color: #fff; }
+        .charge-nav-btn { background: #fff; color: #000; border: none; padding: 6px 15px; border-radius: 10px; font-weight: 900; cursor: pointer; font-size: 12px; transition: 0.3s; }
+        .charge-nav-btn:hover { background: #8ec5fc; }
+        .nav-avatar { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #222; }
+        .logout-btn { background: none; border: none; color: #333; cursor: pointer; font-size: 18px; }
+        .admin-btn { font-size: 10px; color: #111; cursor: pointer; font-weight: 900; }
+        .status-bar { background: #0a0a0a; border-bottom: 1px solid #111; padding: 12px 0; }
+        .status-inner { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: flex; gap: 20px; align-items: center; font-size: 12px; }
+        .status-item { background: #000; padding: 5px 15px; border-radius: 20px; border: 1px solid #111; color: #888; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 40px; padding: 60px 20px; max-width: 1200px; margin: 0 auto; }
+        .card { background: #050505; border-radius: 40px; border: 1px solid #111; overflow: hidden; transition: 0.5s cubic-bezier(0.2, 1, 0.3, 1); }
+        .card:hover { transform: translateY(-20px); border-color: #222; box-shadow: 0 40px 80px rgba(0,0,0,0.8); }
+        .card-top { height: 240px; position: relative; }
+        .card-top img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8); }
+        .sales-badge { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); padding: 8px 15px; border-radius: 15px; font-size: 11px; font-weight: 900; }
+        .card-body { padding: 35px; }
+        .card-body h3 { font-size: 26px; font-weight: 900; margin: 0 0 10px; color: #fff; }
+        .card-body p { color: #444; font-size: 15px; line-height: 1.6; height: 48px; overflow: hidden; }
+        .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 35px; }
+        .price { font-size: 28px; font-weight: 900; color: #fff; }
+        .btn-buy { background: #fff; color: #000; border: none; padding: 18px 35px; border-radius: 20px; font-weight: 900; cursor: pointer; transition: 0.3s; }
+        .btn-dl { background: #00ff88; color: #000; border: none; padding: 18px 35px; border-radius: 20px; font-weight: 900; cursor: pointer; }
         .form-view { display: flex; justify-content: center; padding: 100px 20px; }
-        .glass-card { background: #0a0a0a; padding: 50px; border-radius: 40px; border: 1px solid #1a1a1a; width: 100%; max-width: 500px; }
-        .tabs { display: flex; gap: 10px; margin-bottom: 30px; }
-        .tabs button { flex: 1; padding: 12px; background: #000; border: 1px solid #222; color: #444; border-radius: 12px; cursor: pointer; }
+        .glass-form { background: #050505; border: 1px solid #111; padding: 60px; border-radius: 50px; width: 100%; max-width: 550px; box-shadow: 0 50px 100px rgba(0,0,0,1); }
+        .tabs { display: flex; gap: 15px; margin-bottom: 40px; }
+        .tabs button { flex: 1; padding: 18px; background: #000; border: 1px solid #111; color: #333; border-radius: 20px; cursor: pointer; font-weight: 900; }
         .tabs button.active { background: #fff; color: #000; }
-        input { width: 100%; padding: 15px; background: #000; border: 1px solid #222; border-radius: 12px; color: #fff; margin-bottom: 15px; box-sizing: border-box; outline: none; }
-        .submit-btn { width: 100%; background: #fff; color: #000; border: none; padding: 15px; border-radius: 12px; font-weight: 900; cursor: pointer; }
-        .back-btn { background: none; border: none; color: #333; margin-top: 20px; width: 100%; cursor: pointer; }
-        .loader { height: 100vh; background: #000; display: flex; justify-content: center; align-items: center; font-weight: 900; color: #222; font-size: 2rem; }
+        input { width: 100%; padding: 20px; background: #000; border: 1px solid #111; border-radius: 20px; color: #fff; margin-bottom: 20px; box-sizing: border-box; outline: none; }
+        .btn-submit { width: 100%; background: #fff; color: #000; border: none; padding: 22px; border-radius: 20px; font-weight: 900; cursor: pointer; }
+        .btn-back { background: none; border: none; color: #333; margin-top: 20px; width: 100%; cursor: pointer; font-weight: 700; }
+        .loader { height: 100vh; background: #000; display: flex; justify-content: center; align-items: center; font-weight: 900; font-size: 2rem; color: #111; }
+        .fade-in { animation: fadeIn 1s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .footer { text-align: center; padding: 100px 0; color: #080808; font-weight: 900; }
       `}</style>
+    </div>
+  );
+}
+
+function AdminList({ onApprove }) {
+  const [list, setList] = useState([]);
+  useEffect(() => { supabase.from('charge_requests').select('*').eq('status', 'pending').then(({data})=>setList(data || [])); }, []);
+  return (
+    <div>
+      {list.map(r => (
+        <div key={r.id} style={{padding:'20px', background:'#000', border:'1px solid #111', borderRadius:'20px', marginBottom:'15px'}}>
+          <p style={{margin:0, color:'#8ec5fc'}}><strong>{r.request_type==='voucher'?'🎫 문상':'🏦 무통장'} - {r.amount.toLocaleString()}원</strong></p>
+          <p style={{color:'#333', fontSize:'11px'}}>{r.user_email}</p>
+          <p style={{color:'#fff', fontWeight:'bold', background:'#080808', padding:'10px', borderRadius:'10px', margin:'10px 0'}}>{r.voucher_pin || r.sender_name}</p>
+          <button onClick={()=>onApprove(r)} style={{width:'100%', padding:'12px', background:'#fff', border:'none', borderRadius:'12px', cursor:'pointer', fontWeight:'900'}}>승인하기</button>
+        </div>
+      ))}
+      {list.length === 0 && <p style={{color:'#222', textAlign:'center'}}>대기 중인 요청이 없습니다.</p>}
     </div>
   );
 }
