@@ -2,15 +2,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-export default function SkyRiceShop() {
+export default function RiceSkyV2() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [assets, setAssets] = useState([]);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [view, setView] = useState('shop'); 
-
-  // 관리자 비밀번호 설정
   const ADMIN_PASS = '20140419ju!';
 
   useEffect(() => {
@@ -28,16 +24,13 @@ export default function SkyRiceShop() {
     }
   }
 
-  async function handleLogin() {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) alert("로그인 실패: " + error.message);
-    else window.location.reload();
-  }
-
-  async function handleSignUp() {
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) alert("회원가입 실패: " + error.message);
-    else alert("가입 이메일을 확인해주세요!");
+  // --- 디스코드 로그인 함수 ---
+  async function loginWithDiscord() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'discord',
+      options: { redirectTo: window.location.origin }
+    });
+    if (error) alert("디스코드 로그인 에러: " + error.message);
   }
 
   async function buyAsset(asset) {
@@ -46,7 +39,7 @@ export default function SkyRiceShop() {
     
     const { error } = await supabase.from('profiles').update({ balance: profile.balance - asset.price }).eq('id', user.id);
     if (!error) {
-      alert(`🌤️ ${asset.title} 구매 성공!`);
+      alert(`✨ ${asset.title} 구매 성공! 하늘 저장소에서 확인하세요.`);
       init();
     }
   }
@@ -54,164 +47,163 @@ export default function SkyRiceShop() {
   const [adminInput, setAdminInput] = useState('');
   async function uploadAsset(e) {
     e.preventDefault();
-    if (adminInput !== ADMIN_PASS) return alert('관리자 비밀번호가 틀렸습니다.');
-    
+    if (adminInput !== ADMIN_PASS) return alert('비밀번호가 틀렸습니다!');
     const form = e.target;
-    const { error } = await supabase.from('assets').insert({
+    await supabase.from('assets').insert({
       title: form.title.value,
       price: parseInt(form.price.value),
       description: form.description.value,
-      image_url: form.image.value || 'https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?auto=format&fit=crop&w=500',
+      image_url: form.image.value || 'https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?fit=crop&w=500',
     });
-    if (!error) { alert('상품 등록 완료!'); setView('shop'); init(); }
+    alert('상품 등록 성공!'); setView('shop'); init();
   }
 
   return (
-    <div style={styles.container}>
-      {/* 애니메이션용 배경 구름 */}
-      <div style={styles.cloud1}></div>
-      <div style={styles.cloud2}></div>
+    <div className="sky-container">
+      {/* 배경 애니메이션 요소 */}
+      <div className="stars"></div>
+      <div className="clouds"></div>
 
       {/* 헤더 */}
-      <nav style={styles.nav}>
-        <h1 style={styles.logo} onClick={() => setView('shop')}>☁️ RICE ASSET STORE</h1>
-        <div style={styles.navRight}>
-          <span onClick={() => setView('admin')} style={styles.adminLink}>ADMIN</span>
+      <nav className="glass-nav">
+        <h1 className="logo" onClick={() => setView('shop')}>🍚 RICE STORE</h1>
+        <div className="nav-links">
+          <span onClick={() => setView('admin')} className="admin-btn">관리자</span>
           {user ? (
-            <div style={styles.userInfo}>
-              <span style={styles.balance}>💰 {profile?.balance?.toLocaleString()}원</span>
-              <button onClick={() => supabase.auth.signOut().then(()=>window.location.reload())} style={styles.logoutBtn}>로그아웃</button>
+            <div className="user-info">
+              <span className="balance">💰 {profile?.balance?.toLocaleString()}</span>
+              <img src={user.user_metadata.avatar_url} className="avatar" />
+              <button onClick={() => supabase.auth.signOut().then(()=>window.location.reload())} className="btn-logout">로그아웃</button>
             </div>
           ) : (
-            <div style={styles.authGroup}>
-              <input placeholder="이메일" onChange={e => setEmail(e.target.value)} style={styles.inputSmall} />
-              <input type="password" placeholder="비번" onChange={e => setPassword(e.target.value)} style={styles.inputSmall} />
-              <button onClick={handleLogin} style={styles.loginBtn}>로그인</button>
-              <button onClick={handleSignUp} style={styles.signupBtn}>가입</button>
-            </div>
+            <button onClick={loginWithDiscord} className="btn-discord">
+              <img src="https://assets-global.website-files.com/6257adef93467e42288db750/6257adef93467e6d518db777_32px-Discord-Logo.svg.png" width="20" />
+              디스코드 로그인
+            </button>
           )}
         </div>
       </nav>
 
-      {/* 메인 섹션 */}
-      {view === 'shop' ? (
-        <div style={styles.main}>
-          <div style={styles.hero}>
-            <h2 style={styles.heroTitle}>하늘 위에서 찾은 고퀄리티 에셋</h2>
-            <p style={styles.heroSub}>라이스 스토어에서 당신의 로블록스 세계를 완성하세요.</p>
-          </div>
+      {/* 메인 콘텐츠 */}
+      <main className="content">
+        {view === 'shop' ? (
+          <>
+            <section className="hero">
+              <h2 className="fade-in">Dreamy Roblox Assets</h2>
+              <p className="slide-up">당신의 상상력을 현실로 만드는 하늘의 조각들</p>
+            </section>
 
-          <div style={styles.grid}>
-            {assets.map(asset => (
-              <div key={asset.id} style={styles.card}>
-                <div style={styles.imgWrapper}>
-                  <img src={asset.image_url} alt={asset.title} style={styles.cardImg} />
-                </div>
-                <div style={styles.cardContent}>
-                  <h3 style={styles.cardTitle}>{asset.title}</h3>
-                  <p style={styles.cardDesc}>{asset.description}</p>
-                  <div style={styles.cardFooter}>
-                    <span style={styles.priceTag}>{asset.price.toLocaleString()}원</span>
-                    <button onClick={() => buyAsset(asset)} style={styles.buyBtn}>구매하기</button>
+            <div className="asset-grid">
+              {assets.map(asset => (
+                <div key={asset.id} className="asset-card">
+                  <div className="img-container">
+                    <img src={asset.image_url} alt={asset.title} />
+                  </div>
+                  <div className="card-body">
+                    <h3>{asset.title}</h3>
+                    <p>{asset.description}</p>
+                    <div className="card-footer">
+                      <span className="price">{asset.price.toLocaleString()}원</span>
+                      <button onClick={() => buyAsset(asset)} className="btn-buy">구매</button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="admin-panel glass">
+            <h2>관리자 업로드</h2>
+            <form onSubmit={uploadAsset} className="admin-form">
+              <input name="title" placeholder="상품 이름" required />
+              <input name="price" type="number" placeholder="가격" required />
+              <textarea name="description" placeholder="설명" required />
+              <input name="image" placeholder="이미지 URL" />
+              <input type="password" placeholder="비밀번호" onChange={e => setAdminInput(e.target.value)} required />
+              <button type="submit">천상계로 등록</button>
+            </form>
+            <button onClick={() => setView('shop')} className="btn-back">상점으로 돌아가기</button>
           </div>
-        </div>
-      ) : (
-        <div style={styles.adminBox}>
-          <h2 style={{color: '#4a90e2', textAlign: 'center'}}>ADMIN UPLOAD</h2>
-          <form onSubmit={uploadAsset} style={styles.form}>
-            <input name="title" placeholder="상품 이름" style={styles.formInput} required />
-            <input name="price" type="number" placeholder="가격" style={styles.formInput} required />
-            <textarea name="description" placeholder="상품 상세 설명" style={styles.formTextarea} required />
-            <input name="image" placeholder="이미지 주소(URL)" style={styles.formInput} />
-            <input type="password" placeholder="관리자 비밀번호" onChange={e => setAdminInput(e.target.value)} style={styles.formInput} required />
-            <button type="submit" style={styles.formBtn}>하늘 상점에 등록하기</button>
-          </form>
-          <button onClick={() => setView('shop')} style={styles.backBtn}>뒤로가기</button>
-        </div>
-      )}
+        )}
+      </main>
 
-      {/* 하단 리뷰 섹션 맛보기 */}
-      {view === 'shop' && (
-        <footer style={styles.footer}>
-          <p>⭐️ 실시간 구매평: "배송도 빠르고 에셋 퀄리티가 미쳤어요!" - rice_lover</p>
-        </footer>
-      )}
+      <style jsx>{`
+        .sky-container {
+          min-height: 100vh;
+          background: linear-gradient(180deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+          color: white;
+          font-family: 'Pretendard', sans-serif;
+          overflow-x: hidden;
+          position: relative;
+        }
 
-      <style jsx global>{`
-        @keyframes float {
-          0% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
-          100% { transform: translateY(0px); }
+        /* 별 반짝임 애니메이션 */
+        .stars {
+          position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+          background: url('https://www.transparenttextures.com/patterns/stardust.png');
+          animation: twinkle 10s infinite linear;
+          opacity: 0.5;
         }
-        @keyframes moveClouds {
-          from { left: -500px; }
-          to { left: 100%; }
+
+        @keyframes twinkle {
+          from { background-position: 0 0; }
+          to { background-position: -1000px 1000px; }
         }
+
+        .glass-nav {
+          display: flex; justifyContent: space-between; alignItems: center;
+          padding: 20px 80px; position: sticky; top: 0; z-index: 100;
+          background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo { font-size: 24px; font-weight: 900; cursor: pointer; color: #8ec5fc; text-shadow: 0 0 10px #8ec5fc; }
+
+        .btn-discord {
+          background: #5865F2; color: white; border: none; padding: 10px 20px;
+          border-radius: 12px; display: flex; alignItems: center; gap: 10px;
+          font-weight: bold; cursor: pointer; transition: 0.3s;
+        }
+        .btn-discord:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(88, 101, 242, 0.5); }
+
+        .hero { text-align: center; padding: 80px 20px; }
+        .hero h2 { font-size: 60px; margin-bottom: 10px; background: linear-gradient(to right, #fff, #8ec5fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 40px; padding: 0 80px 80px; }
+
+        .asset-card {
+          background: rgba(255, 255, 255, 0.05); border-radius: 25px; border: 1px solid rgba(255, 255, 255, 0.1);
+          overflow: hidden; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .asset-card:hover { transform: translateY(-15px) rotate(2deg); background: rgba(255, 255, 255, 0.1); border-color: #8ec5fc; }
+
+        .img-container { height: 200px; overflow: hidden; }
+        .img-container img { width: 100%; height: 100%; object-fit: cover; }
+
+        .card-body { padding: 25px; }
+        .price { font-size: 24px; font-weight: 900; color: #8ec5fc; }
+
+        .btn-buy {
+          background: white; color: #2c5364; border: none; padding: 10px 20px;
+          border-radius: 10px; fontWeight: bold; cursor: pointer; transition: 0.3s;
+        }
+        .btn-buy:hover { background: #8ec5fc; color: white; }
+
+        .admin-panel { max-width: 500px; margin: 100px auto; padding: 40px; border-radius: 30px; }
+        .admin-form { display: flex; flexDirection: column; gap: 15px; }
+        .admin-form input, .admin-form textarea {
+          background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
+          padding: 15px; border-radius: 12px; color: white; outline: none;
+        }
+
+        .avatar { width: 35px; height: 35px; border-radius: 50%; border: 2px solid #8ec5fc; }
+
+        /* 애니메이션 효과들 */
+        .fade-in { animation: fadeIn 1.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .slide-up { animation: slideUp 1s ease-out; }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       `}</style>
     </div>
   )
 }
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#e3f2fd', // 연한 하늘색
-    backgroundImage: 'linear-gradient(to bottom, #bbdefb, #e3f2fd)',
-    fontFamily: '"Pretendard", sans-serif',
-    position: 'relative',
-    overflowX: 'hidden'
-  },
-  cloud1: {
-    position: 'absolute', width: '300px', height: '100px', background: 'white', borderRadius: '100px',
-    top: '150px', opacity: 0.6, filter: 'blur(30px)', animation: 'moveClouds 60s linear infinite'
-  },
-  cloud2: {
-    position: 'absolute', width: '400px', height: '120px', background: 'white', borderRadius: '100px',
-    top: '400px', opacity: 0.4, filter: 'blur(40px)', animation: 'moveClouds 90s linear infinite reverse'
-  },
-  nav: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '20px 60px', backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 100,
-    boxShadow: '0 4px 15px rgba(0,0,0,0.05)'
-  },
-  logo: { fontSize: '22px', fontWeight: '900', color: '#4a90e2', cursor: 'pointer', letterSpacing: '1px' },
-  navRight: { display: 'flex', gap: '25px', alignItems: 'center' },
-  adminLink: { fontSize: '12px', color: '#90caf9', cursor: 'pointer', fontWeight: 'bold' },
-  userInfo: { display: 'flex', gap: '15px', alignItems: 'center' },
-  balance: { fontWeight: '800', color: '#1e88e5', backgroundColor: '#fff', padding: '5px 15px', borderRadius: '20px' },
-  logoutBtn: { border: 'none', background: '#90caf9', color: 'white', padding: '5px 12px', borderRadius: '5px', cursor: 'pointer' },
-  authGroup: { display: 'flex', gap: '8px' },
-  inputSmall: { padding: '8px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '13px', outline: 'none' },
-  loginBtn: { background: '#4a90e2', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' },
-  signupBtn: { background: '#fff', color: '#4a90e2', border: '1px solid #4a90e2', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' },
-  main: { padding: '40px 60px', position: 'relative', zIndex: 1 },
-  hero: { textAlign: 'center', marginBottom: '60px', animation: 'float 4s ease-in-out infinite' },
-  heroTitle: { fontSize: '48px', color: '#1565c0', marginBottom: '10px' },
-  heroSub: { fontSize: '18px', color: '#546e7a' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '35px' },
-  card: { 
-    backgroundColor: 'rgba(255, 255, 255, 0.9)', borderRadius: '25px', overflow: 'hidden',
-    transition: 'transform 0.3s ease, boxShadow 0.3s ease', cursor: 'default',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.05)'
-  },
-  imgWrapper: { overflow: 'hidden', height: '220px' },
-  cardImg: { width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s' },
-  cardContent: { padding: '25px' },
-  cardTitle: { fontSize: '20px', fontWeight: 'bold', marginBottom: '10px', color: '#333' },
-  cardDesc: { color: '#78909c', fontSize: '14px', height: '42px', marginBottom: '20px' },
-  cardFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  priceTag: { fontSize: '24px', fontWeight: '900', color: '#4a90e2' },
-  buyBtn: { backgroundColor: '#4a90e2', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '15px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' },
-  adminBox: { maxWidth: '500px', margin: '100px auto', backgroundColor: 'white', padding: '40px', borderRadius: '30px', boxShadow: '0 20px 50px rgba(0,0,0,0.1)' },
-  form: { display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' },
-  formInput: { padding: '15px', borderRadius: '12px', border: '1px solid #eee', backgroundColor: '#f9f9f9', outline: 'none' },
-  formTextarea: { padding: '15px', borderRadius: '12px', border: '1px solid #eee', backgroundColor: '#f9f9f9', outline: 'none', height: '100px', resize: 'none' },
-  formBtn: { padding: '18px', backgroundColor: '#4a90e2', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px' },
-  backBtn: { width: '100%', marginTop: '10px', background: 'none', border: 'none', color: '#aaa', cursor: 'pointer' },
-  footer: { textAlign: 'center', padding: '40px', color: '#1565c0', fontWeight: 'bold' }
-};
